@@ -1,0 +1,83 @@
+# Step 1: Install necessary libraries
+!pip install cryptography
+
+# Step 2: Upload your input file
+from google.colab import files
+import os
+
+# Upload the file and save it locally
+uploaded = files.upload()
+
+# Get the uploaded file name (first key in the uploaded dictionary)
+input_file = list(uploaded.keys())[0]
+
+# Save the uploaded file locally
+with open(input_file, 'wb') as f:
+    f.write(uploaded[input_file])
+print(f"File '{input_file}' uploaded and saved successfully.")
+
+# Step 3: Import necessary libraries
+from cryptography.hazmat.primitives import ciphers, hashes
+from cryptography.hazmat.primitives.asymmetric import rsa, padding as asympadding
+from cryptography.hazmat.primitives.ciphers import algorithms, modes
+
+# Step 4: Define functions for key generation and encryption
+def generate_rsa_key_pair():
+    """Generates an RSA key pair."""
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+    )
+    public_key = private_key.public_key()
+    return private_key, public_key
+
+def encrypt_data_with_aes_gcm(data, key):
+    """Encrypts data using AES-GCM."""
+    iv = os.urandom(16)
+    cipher = ciphers.Cipher(algorithms.AES(key), modes.GCM(iv))
+    encryptor = cipher.encryptor()
+    ciphertext = encryptor.update(data) + encryptor.finalize()
+    tag = encryptor.tag
+    return iv, tag, ciphertext
+
+def encrypt_data_with_rsa(data, public_key):
+    """Encrypts data using RSA."""
+    ciphertext = public_key.encrypt(
+        data,
+        asympadding.OAEP(
+            mgf=asympadding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+    return ciphertext
+
+def encrypt_file(input_file, output_file, public_key):
+    """Encrypts a file using AES-GCM with RSA."""
+    with open(input_file, 'rb') as f_in, open(output_file, 'wb') as f_out:
+        # Generate a random AES key
+        aes_key = os.urandom(32)
+
+        # Encrypt the AES key with RSA
+        encrypted_aes_key = encrypt_data_with_rsa(aes_key, public_key)
+
+        # Encrypt the data with AES-GCM using the AES key
+        iv, tag, ciphertext = encrypt_data_with_aes_gcm(f_in.read(), aes_key)
+
+        # Write the encrypted data to the output file
+        f_out.write(encrypted_aes_key + iv + tag + ciphertext)
+
+# Step 5: Main Execution (Encryption Only)
+
+# Define input/output file names
+encrypted_file = 'encry.txt'
+
+# Generate RSA key pair
+private_key, public_key = generate_rsa_key_pair()
+
+# Encrypt the file
+encrypt_file(input_file, encrypted_file, public_key)
+print(f"File '{input_file}' has been encrypted and saved as '{encrypted_file}'.")
+
+# Step 6: Download the encrypted file
+files.download(encrypted_file)  # Download encrypted file

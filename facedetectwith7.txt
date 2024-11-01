@@ -1,0 +1,49 @@
+# Install necessary libraries
+!pip install mediapipe opencv-python-headless
+
+import cv2
+import mediapipe as mp
+from google.colab.patches import cv2_imshow
+from google.colab import files
+import csv
+
+# Initialize MediaPipe Face Mesh
+mp_face_mesh = mp.solutions.face_mesh
+face_mesh = mp_face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1, refine_landmarks=True, min_detection_confidence=0.5)
+
+# Upload an image
+uploaded = files.upload()
+
+for file_name in uploaded.keys():
+    # Read the uploaded image
+    image = cv2.imread(file_name)
+
+    # Resize the image to 50% of its original size
+    image = cv2.resize(image, (image.shape[1] // 2, image.shape[0] // 2))
+
+    # Convert the BGR image to RGB
+    rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    # Process the image and extract facial landmarks
+    results = face_mesh.process(rgb_image)
+
+    # Open a CSV file to write the landmarks
+    with open('landmarks.csv', mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['Index', 'X', 'Y', 'Z'])  # CSV header
+
+        if results.multi_face_landmarks:
+            for face_landmarks in results.multi_face_landmarks:
+                # Draw circles at the landmark points and write to CSV
+                for idx, landmark in enumerate(face_landmarks.landmark):
+                    x = int(landmark.x * image.shape[1])
+                    y = int(landmark.y * image.shape[0])
+                    z = landmark.z
+                    cv2.circle(image, (x, y), 3, (0, 0, 255), -1)  # Larger red circles
+                    writer.writerow([idx, x, y, z])  # Write landmark to CSV
+
+    # Display the image with landmarks
+    cv2_imshow(image)
+
+# Download the CSV file
+files.download('landmarks.csv')

@@ -1,0 +1,57 @@
+import random
+
+# Target sequence (the values you provided)
+target_sequence = [142, 146, 149, 153]
+
+# Parameters
+population_size = 10
+mutation_rate = 0.1
+generations = 100
+
+# Create an individual single value
+def create_individual():
+    return random.randint(min(target_sequence), max(target_sequence))
+
+# Calculate fitness: You can define this based on your specific needs
+def calculate_fitness(individual):
+    # Example: Fitness based on the difference from the average of the target sequence
+    target_value = sum(target_sequence) // len(target_sequence)
+    return -abs(individual - target_value)
+
+# Mutate an individual value
+def mutate(individual):
+    if random.random() < mutation_rate:
+        mutation_amount = random.randint(-10, 10)
+        individual += mutation_amount
+        individual = max(min(individual, max(target_sequence)), min(target_sequence))
+    return individual
+
+# Initial population
+population = [create_individual() for _ in range(population_size)]
+
+# Genetic algorithm
+for generation in range(generations):
+    fitness_scores = [calculate_fitness(ind) for ind in population]
+    sorted_population = [x for _, x in sorted(zip(fitness_scores, population), reverse=True)]
+    population = sorted_population[:population_size // 2]
+
+    while len(population) < population_size:
+        parent1, parent2 = random.sample(population, 2)
+        offspring = mutate((parent1 + parent2) // 2)
+        population.append(offspring)
+
+    if max(fitness_scores) == 0:
+        break
+
+# Best value found
+best_value = population[0]
+print("Best Value: ", best_value)
+
+# Shift target_sequence values to the left and set the last element to best_value
+for i in range(1, len(target_sequence)):
+    target_sequence[i - 1] = target_sequence[i]
+
+# Update the last value with the best value
+target_sequence[-1] = best_value
+
+print("Updated Target Sequence: ", target_sequence)

@@ -1,0 +1,73 @@
+# Step 1: Install necessary libraries
+!pip install cryptography
+
+# Step 2: Upload your encrypted file and keys if necessary
+from google.colab import files
+import os
+
+# Upload the encrypted file and save it locally
+uploaded = files.upload()
+
+# Get the uploaded file name (first key in the uploaded dictionary)
+encrypted_file = list(uploaded.keys())[0]
+
+# Save the uploaded file locally
+with open(encrypted_file, 'wb') as f:
+    f.write(uploaded[encrypted_file])
+print(f"File '{encrypted_file}' uploaded and saved successfully.")
+
+# Step 3: Import necessary libraries
+from cryptography.hazmat.primitives import ciphers, hashes
+from cryptography.hazmat.primitives.asymmetric import rsa, padding as asympadding
+from cryptography.hazmat.primitives.ciphers import algorithms, modes
+
+# Step 4: Define functions for decryption
+def decrypt_data_with_aes_gcm(iv, tag, ciphertext, key):
+    """Decrypts data using AES-GCM."""
+    cipher = ciphers.Cipher(algorithms.AES(key), modes.GCM(iv, tag))
+    decryptor = cipher.decryptor()
+    plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+    return plaintext
+
+def decrypt_data_with_rsa(ciphertext, private_key):
+    """Decrypts data using RSA."""
+    plaintext = private_key.decrypt(
+        ciphertext,
+        asympadding.OAEP(
+            mgf=asympadding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+    return plaintext
+
+def decrypt_file(input_file, output_file, private_key):
+    """Decrypts a file using AES-GCM with RSA."""
+    with open(input_file, 'rb') as f_in, open(output_file, 'wb') as f_out:
+        # Read the encrypted data from the input file
+        encrypted_aes_key = f_in.read(256)  # Assuming 256-bit RSA key
+        iv = f_in.read(16)
+        tag = f_in.read(16)
+        ciphertext = f_in.read()
+
+        # Decrypt the AES key with RSA
+        aes_key = decrypt_data_with_rsa(encrypted_aes_key, private_key)
+
+        # Decrypt the data with AES-GCM using the AES key
+        plaintext = decrypt_data_with_aes_gcm(iv, tag, ciphertext, aes_key)
+
+        # Write the decrypted plaintext to the output file
+        f_out.write(plaintext)
+
+# Step 5: Main Execution (Decryption Only)
+
+# Define output file name
+decrypted_file = 'decry.txt'
+
+# Use the previously generated private key (Make sure to load the same one used for encryption)
+# If you need to reload the private key, do so from a file or memory
+decrypt_file(encrypted_file, decrypted_file, private_key)
+print(f"File '{encrypted_file}' has been decrypted and saved as '{decrypted_file}'.")
+
+# Step 6: Download the decrypted file
+files.download(decrypted_file)  # Download decrypted file
